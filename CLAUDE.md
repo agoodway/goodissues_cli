@@ -1,64 +1,63 @@
+# CLAUDE.md — goodissues (Zig CLI)
 
-# GoodIssues
+## What This Is
 
-GoodIssues is a bug and feature request tracking system with a REST API.
+CLI for GoodIssues bug and feature request tracking. Built in Zig with zero external dependencies. Single static binary (~1MB).
 
-## Monorepo Structure
+## Commands
 
-```
-goodissues/
-├── app/                    # Phoenix/Elixir backend API
-│   ├── lib/good_issues/    # Core business logic (contexts)
-│   ├── lib/good_issues_web/ # Web layer (controllers, views, router)
-│   ├── priv/repo/          # Database migrations
-│   ├── test/               # ExUnit tests
-│   └── openapi.json        # OpenAPI specification
-├── cli/                    # Go CLI client
-│   ├── cmd/                # Cobra commands
-│   ├── internal/           # Internal packages
-│   │   ├── client/         # API client
-│   │   └── config/         # Configuration management
-│   └── main.go             # Entry point
-└── openspec/               # Spec-driven development
-    ├── project.md          # Project conventions
-    ├── specs/              # Current specifications
-    └── changes/            # Change proposals
-```
+zig build                  # Build debug binary
+zig build test             # Run tests
+zig build run -- <args>    # Build and run
+just release               # Build optimized native binary
+just dist                  # Cross-compile all 6 platform binaries
 
-## Components
+## Project Structure
 
-### Backend (`app/`)
-- **Framework**: Phoenix 1.8 with Elixir
-- **Database**: PostgreSQL with Ecto
-- **API**: REST API at `/api/v1/` with Bearer token auth
-- **Key resources**: Projects, Issues, API Keys, Accounts, Users
+src/
+  main.zig              # CLI entry point, arg parsing, command routing
+  help.zig              # All help text (agent-readable, one const per command)
+  config.zig            # Per-environment config (~/.goodissues.json, Windows: %USERPROFILE%\.goodissues.json)
+  generated.zig         # API types and HTTP client (projects, issues)
+  table.zig             # Column-aligned table printer
+  commands/
+    projects.zig        # projects list|get|create|delete
+    issues.zig          # issues list|get|create|delete
+    configure.zig       # configure [show] --url --api-key --env
 
-Run the server:
-```bash
-cd app && mix phx.server
-```
+## Adding a New Command
 
-Run tests:
-```bash
-cd app && mix test
-```
+When adding a new command, you MUST update THREE files:
 
-### CLI (`cli/`)
-- **Language**: Go with Cobra CLI framework
-- **Config**: Stored in `~/.goodissues/config.yaml`
-- **Auth**: API keys (pk_* read-only, sk_* read/write)
+1. **src/main.zig** — Add routing in `main()` and `dispatchHelp()`
+2. **src/help.zig** — Add a help constant with usage, flags, arguments, behavior, exit codes, and examples. Also update root_help to list the new command.
+3. **src/commands/<name>.zig** — Implementation
 
-Build and use:
-```bash
-cd cli && go build -o goodissues .
-./goodissues configure --url http://localhost:4000 --api-key sk_...
-./goodissues projects list
-./goodissues issues list
-```
+## API Client (generated.zig)
 
-## Development Conventions
+Types and client live in `src/generated.zig`. Based on the OpenAPI spec at `../app/openapi.json`.
 
-- Use conventional commits (feat:, fix:, docs:, chore:)
-- Run `mix format` before committing Elixir code
-- Run `go fmt` before committing Go code
-- API changes require OpenAPI spec updates
+Regenerate after API changes:
+  ~/.local/bin/openapi2zig generate -i ../app/openapi.json -o src/generated.zig
+  # Then manually fix nested types, function names, and Zig 0.15.2 API calls
+
+The client uses named methods (e.g. `listProjects`, `getIssue`, `createIssue`) that map
+1:1 to REST endpoints. Commands import via `const gen = @import("../generated.zig");`.
+
+## Version Management
+
+Version is defined once in `build.zig.zon` and derived everywhere else:
+- `build.zig` reads it via `@import("build.zig.zon")` and passes it as a comptime build option
+- `src/main.zig` imports it via `@import("config").version`
+- `justfile` extracts it with `grep | head -1 | sed`
+
+To bump: `just bump` (patch), `just bump minor`, or `just bump major`.
+To release: `just publish` (runs tests, builds all platforms, tags, pushes, creates GitHub release).
+
+## Zig 0.15.2 Gotchas
+
+- No `std.io.getStdOut()` — Use `std.fs.File.stdout()`
+- No `ArrayList.init(allocator)` — Use `var list: std.ArrayList(u8) = .{};` + pass allocator to methods
+- No `std.json.stringify` — Use `std.json.fmt()` with `std.fmt.allocPrint("{f}", .{...})`
+- Table rows in loops must be heap-allocated (not `&.{...}`)
+- Use `std.heap.page_allocator` for CLI processes

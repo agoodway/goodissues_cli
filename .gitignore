@@ -1,5 +1,5 @@
-.todos/
-.opencode/package-lock.json
-.autopilot-logs/
-cli/goodissues
-cli/fruitfly
+zig-out/
+.zig-cache/
+dist/
+*.o
+*.d
