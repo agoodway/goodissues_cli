@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 
 $Version = if ($env:GOODISSUES_VERSION) { $env:GOODISSUES_VERSION } else { "latest" }
 $InstallDir = if ($env:GOODISSUES_INSTALL_DIR) { $env:GOODISSUES_INSTALL_DIR } else { "$env:LOCALAPPDATA\goodissues" }
-$BaseUrl = if ($env:GOODISSUES_BASE_URL) { $env:GOODISSUES_BASE_URL } else { "https://github.com/goodway/goodissues/releases/download" }
+$BaseUrl = if ($env:GOODISSUES_BASE_URL) { $env:GOODISSUES_BASE_URL } else { "https://github.com/agoodway/goodissues_cli/releases/download" }
 
 $Arch = if ([Environment]::Is64BitOperatingSystem) {
     if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "arm64" } else { "amd64" }

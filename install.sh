@@ -4,7 +4,7 @@ set -e
 
 VERSION="${GOODISSUES_VERSION:-latest}"
 INSTALL_DIR="${GOODISSUES_INSTALL_DIR:-$HOME/.local/bin}"
-BASE_URL="${GOODISSUES_BASE_URL:-https://github.com/goodway/goodissues/releases/download}"
+BASE_URL="${GOODISSUES_BASE_URL:-https://github.com/agoodway/goodissues_cli/releases/download}"
 
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
 ARCH="$(uname -m)"

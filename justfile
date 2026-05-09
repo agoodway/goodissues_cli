@@ -1,6 +1,7 @@
 # goodissues build recipes
 
 version := `grep '\.version' build.zig.zon | head -1 | sed 's/.*"\(.*\)".*/\1/'`
+repo := "agoodway/goodissues_cli"
 dist := "dist"
 
 # Build debug binary
@@ -27,9 +28,9 @@ bump part="patch":
 
 # Build, checksum, tag, and publish a GitHub release
 publish: test dist checksums
-    git tag -a "v{{version}}" -m "v{{version}}"
-    git push origin "v{{version}}"
-    gh release create "v{{version}}" {{dist}}/* --title "v{{version}}" --generate-notes
+    cd .. && git subtree push --prefix=cli-zig git@github.com:{{repo}}.git main
+    gh api repos/{{repo}}/git/refs -f ref="refs/tags/v{{version}}" -f sha="$(gh api repos/{{repo}}/commits/main --jq '.sha')"
+    gh release create "v{{version}}" {{dist}}/* --repo {{repo}} --title "v{{version}}" --generate-notes
 
 # Run with arguments
 run *ARGS:
