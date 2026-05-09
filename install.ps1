@@ -1,11 +1,11 @@
 # Install goodissues CLI on Windows.
-# Usage: irm https://raw.githubusercontent.com/goodway/goodissues/main/cli-zig/install.ps1 | iex
+# Usage: irm https://raw.githubusercontent.com/agoodway/goodissues_cli/main/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
 
 $Version = if ($env:GOODISSUES_VERSION) { $env:GOODISSUES_VERSION } else { "latest" }
 $InstallDir = if ($env:GOODISSUES_INSTALL_DIR) { $env:GOODISSUES_INSTALL_DIR } else { "$env:LOCALAPPDATA\goodissues" }
-$BaseUrl = if ($env:GOODISSUES_BASE_URL) { $env:GOODISSUES_BASE_URL } else { "https://github.com/agoodway/goodissues_cli/releases/download" }
+$RepoUrl = if ($env:GOODISSUES_BASE_URL) { $env:GOODISSUES_BASE_URL } else { "https://github.com/agoodway/goodissues_cli" }
 
 $Arch = if ([Environment]::Is64BitOperatingSystem) {
     if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "arm64" } else { "amd64" }
@@ -16,9 +16,9 @@ $Arch = if ([Environment]::Is64BitOperatingSystem) {
 $Binary = "goodissues-windows-${Arch}.exe"
 
 if ($Version -eq "latest") {
-    $Url = "${BaseUrl}/latest/download/${Binary}"
+    $Url = "${RepoUrl}/releases/latest/download/${Binary}"
 } else {
-    $Url = "${BaseUrl}/v${Version}/${Binary}"
+    $Url = "${RepoUrl}/releases/download/v${Version}/${Binary}"
 }
 
 Write-Host "Downloading goodissues for windows/${Arch}..."

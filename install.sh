@@ -4,7 +4,7 @@ set -e
 
 VERSION="${GOODISSUES_VERSION:-latest}"
 INSTALL_DIR="${GOODISSUES_INSTALL_DIR:-$HOME/.local/bin}"
-BASE_URL="${GOODISSUES_BASE_URL:-https://github.com/agoodway/goodissues_cli/releases/download}"
+REPO_URL="${GOODISSUES_BASE_URL:-https://github.com/agoodway/goodissues_cli}"
 
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
 ARCH="$(uname -m)"
@@ -27,9 +27,9 @@ esac
 BINARY="goodissues-${OS}-${ARCH}"
 
 if [ "$VERSION" = "latest" ]; then
-    URL="${BASE_URL}/latest/download/${BINARY}"
+    URL="${REPO_URL}/releases/latest/download/${BINARY}"
 else
-    URL="${BASE_URL}/v${VERSION}/${BINARY}"
+    URL="${REPO_URL}/releases/download/v${VERSION}/${BINARY}"
 fi
 
 echo "Downloading goodissues for ${OS}/${ARCH}..."
