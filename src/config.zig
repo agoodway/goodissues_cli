@@ -16,9 +16,12 @@ const config_filename = ".goodissues.json";
 
 pub fn configPath(allocator: std.mem.Allocator) ![]const u8 {
     const home = if (builtin.os.tag == .windows)
-        std.posix.getenv("USERPROFILE") orelse std.posix.getenv("HOME") orelse return error.NoHomeDir
+        std.process.getEnvVarOwned(allocator, "USERPROFILE") catch
+            std.process.getEnvVarOwned(allocator, "HOME") catch
+            return error.NoHomeDir
     else
-        std.posix.getenv("HOME") orelse return error.NoHomeDir;
+        std.process.getEnvVarOwned(allocator, "HOME") catch return error.NoHomeDir;
+    defer allocator.free(home);
     const sep: []const u8 = if (builtin.os.tag == .windows) "\\" else "/";
     return std.fmt.allocPrint(allocator, "{s}{s}{s}", .{ home, sep, config_filename });
 }
