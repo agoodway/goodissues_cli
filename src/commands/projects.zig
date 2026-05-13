@@ -15,6 +15,8 @@ pub fn run(allocator: std.mem.Allocator, args: []const []const u8) !void {
         try getProject(allocator, args);
     } else if (std.mem.eql(u8, subcmd, "create")) {
         try createProject(allocator, args);
+    } else if (std.mem.eql(u8, subcmd, "update")) {
+        try updateProject(allocator, args);
     } else if (std.mem.eql(u8, subcmd, "delete")) {
         try deleteProject(allocator, args);
     } else {
@@ -46,7 +48,7 @@ fn getClient(allocator: std.mem.Allocator, args: []const []const u8) !gen.Client
 
 fn listProjects(allocator: std.mem.Allocator, args: []const []const u8) !void {
     const client = try getClient(allocator, args);
-    const resp = try client.listProjects();
+    const resp = try client.listProjects(main_mod.getFlag(args, "--query"));
 
     if (resp.status != .ok) {
         try main_mod.writeErr(allocator, "Error: API returned {d}\n{s}\n", .{ @intFromEnum(resp.status), resp.body });
@@ -151,6 +153,41 @@ fn createProject(allocator: std.mem.Allocator, args: []const []const u8) !void {
     }
 
     try main_mod.writeOut(allocator, "Project created.\n", .{});
+}
+
+fn updateProject(allocator: std.mem.Allocator, args: []const []const u8) !void {
+    const id = blk: {
+        var i: usize = 0;
+        var count: usize = 0;
+        while (i < args.len) : (i += 1) {
+            const arg = args[i];
+            if (std.mem.startsWith(u8, arg, "--")) {
+                if (std.mem.indexOf(u8, arg, "=") == null) i += 1;
+                continue;
+            }
+            if (std.mem.startsWith(u8, arg, "-")) continue;
+            count += 1;
+            if (count == 2) break :blk arg;
+        }
+        try File.stderr().writeAll("Error: project ID required. Usage: goodissues projects update <id> --body '<json>'\n");
+        std.process.exit(1);
+    };
+
+    const body = main_mod.getFlag(args, "--body") orelse {
+        try File.stderr().writeAll("Error: --body '<json>' is required.\n");
+        std.process.exit(1);
+    };
+
+    const client = try getClient(allocator, args);
+    const resp = try client.updateProject(id, body);
+
+    if (resp.status != .ok) {
+        try main_mod.writeErr(allocator, "Error: API returned {d}\n{s}\n", .{ @intFromEnum(resp.status), resp.body });
+        std.process.exit(1);
+    }
+
+    try File.stdout().writeAll(resp.body);
+    try File.stdout().writeAll("\n");
 }
 
 fn deleteProject(allocator: std.mem.Allocator, args: []const []const u8) !void {

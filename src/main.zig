@@ -3,6 +3,11 @@ const config = @import("config");
 const help = @import("help.zig");
 const projects_cmd = @import("commands/projects.zig");
 const issues_cmd = @import("commands/issues.zig");
+const errors_cmd = @import("commands/errors.zig");
+const incidents_cmd = @import("commands/incidents.zig");
+const checks_cmd = @import("commands/checks.zig");
+const heartbeats_cmd = @import("commands/heartbeats.zig");
+const events_cmd = @import("commands/events.zig");
 const configure_cmd = @import("commands/configure.zig");
 
 const File = std.fs.File;
@@ -43,6 +48,16 @@ pub fn main() !void {
         try projects_cmd.run(allocator, args[2..]);
     } else if (std.mem.eql(u8, cmd, "issues")) {
         try issues_cmd.run(allocator, args[2..]);
+    } else if (std.mem.eql(u8, cmd, "errors")) {
+        try errors_cmd.run(allocator, args[2..]);
+    } else if (std.mem.eql(u8, cmd, "incidents")) {
+        try incidents_cmd.run(allocator, args[2..]);
+    } else if (std.mem.eql(u8, cmd, "checks")) {
+        try checks_cmd.run(allocator, args[2..]);
+    } else if (std.mem.eql(u8, cmd, "heartbeats")) {
+        try heartbeats_cmd.run(allocator, args[2..]);
+    } else if (std.mem.eql(u8, cmd, "events")) {
+        try events_cmd.run(allocator, args[2..]);
     } else if (std.mem.eql(u8, cmd, "configure")) {
         try configure_cmd.run(allocator, args[2..]);
     } else {
@@ -63,6 +78,21 @@ fn dispatchHelp(args: []const []const u8) !void {
     }
     if (std.mem.eql(u8, cmd, "issues")) {
         return File.stdout().writeAll(help.issues_help);
+    }
+    if (std.mem.eql(u8, cmd, "errors")) {
+        return File.stdout().writeAll(help.errors_help);
+    }
+    if (std.mem.eql(u8, cmd, "incidents")) {
+        return File.stdout().writeAll(help.incidents_help);
+    }
+    if (std.mem.eql(u8, cmd, "checks")) {
+        return File.stdout().writeAll(help.checks_help);
+    }
+    if (std.mem.eql(u8, cmd, "heartbeats")) {
+        return File.stdout().writeAll(help.heartbeats_help);
+    }
+    if (std.mem.eql(u8, cmd, "events")) {
+        return File.stdout().writeAll(help.events_help);
     }
     if (std.mem.eql(u8, cmd, "configure")) {
         return File.stdout().writeAll(help.configure_help);

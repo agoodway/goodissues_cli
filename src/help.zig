@@ -17,6 +17,11 @@ pub const root_help =
     \\Commands:
     \\  projects     List, create, and manage projects
     \\  issues       List, create, and manage issues
+    \\  errors       List, search, report, and update error groups
+    \\  incidents    List, report, update, and resolve incidents
+    \\  checks       Manage project HTTP checks
+    \\  heartbeats   Manage project heartbeat monitors and pings
+    \\  events       Submit event batches
     \\  configure    Set up API connection (URL, API key)
     \\  help         Show help for any command
     \\
@@ -37,17 +42,21 @@ pub const projects_help =
     \\  goodissues projects list [--json] [--env <name>]
     \\  goodissues projects get <id> [--json] [--env <name>]
     \\  goodissues projects create --name <name> [--description <desc>] [--env <name>]
+    \\  goodissues projects update <id> --body '<json>' [--env <name>]
     \\  goodissues projects delete <id> [--env <name>]
     \\
     \\Subcommands:
     \\  list       List all projects (default if no subcommand given)
     \\  get        Show a single project by ID
     \\  create     Create a new project (requires sk_* key)
+    \\  update     Update a project with a raw ProjectRequest JSON body
     \\  delete     Delete a project (requires sk_* key)
     \\
     \\Options:
     \\  --name <name>           Project name (required for create)
     \\  --description <desc>    Project description
+    \\  --body <json>           Raw JSON request body for update
+    \\  --query <query>         Raw query string for list (without '?')
     \\  --json                  Output raw JSON
     \\  --env <name>            Use named environment
     \\
@@ -64,6 +73,7 @@ pub const projects_help =
     \\  goodissues projects list
     \\  goodissues projects get abc123
     \\  goodissues projects create --name "My Project" --description "A project"
+    \\  goodissues projects update abc123 --body '{"name":"Renamed"}'
     \\  goodissues projects delete abc123
     \\
 ;
@@ -75,12 +85,14 @@ pub const issues_help =
     \\  goodissues issues list [--project <id>] [--status <status>] [--json] [--env <name>]
     \\  goodissues issues get <id> [--json] [--env <name>]
     \\  goodissues issues create --project <id> --title <title> --type <type> [options] [--env <name>]
+    \\  goodissues issues update <id> --body '<json>' [--env <name>]
     \\  goodissues issues delete <id> [--env <name>]
     \\
     \\Subcommands:
     \\  list       List issues (default if no subcommand given)
     \\  get        Show a single issue by ID
     \\  create     Create a new issue (requires sk_* key)
+    \\  update     Update an issue with a raw IssueUpdateRequest JSON body
     \\  delete     Delete an issue (requires sk_* key)
     \\
     \\Options:
@@ -90,6 +102,8 @@ pub const issues_help =
     \\  --priority <priority>   Priority: low, medium, high, critical (default: medium)
     \\  --status <status>       Status: new, in_progress, archived (default: new)
     \\  --description <desc>    Issue description
+    \\  --body <json>           Raw JSON request body for update
+    \\  --query <query>         Raw query string for list (without '?')
     \\  --json                  Output raw JSON
     \\  --env <name>            Use named environment
     \\
@@ -108,7 +122,95 @@ pub const issues_help =
     \\  goodissues issues list --project abc123 --status new
     \\  goodissues issues get def456
     \\  goodissues issues create --project abc123 --title "Fix login" --type bug --priority high
+    \\  goodissues issues update def456 --body '{"status":"in_progress"}'
     \\  goodissues issues delete def456
+    \\
+;
+
+pub const errors_help =
+    \\goodissues errors — Manage error groups.
+    \\
+    \\Usage:
+    \\  goodissues errors list [--query <query>] [--env <name>]
+    \\  goodissues errors search --query <query> [--env <name>]
+    \\  goodissues errors get <id> [--env <name>]
+    \\  goodissues errors report --body '<json>' [--env <name>]
+    \\  goodissues errors update <id> --body '<json>' [--env <name>]
+    \\
+    \\Options:
+    \\  --query <query>    Raw query string without '?'
+    \\  --body <json>      Raw ErrorReportRequest or ErrorUpdateRequest JSON
+    \\  --env <name>       Use named environment
+    \\
+;
+
+pub const incidents_help =
+    \\goodissues incidents — Manage incidents.
+    \\
+    \\Usage:
+    \\  goodissues incidents list [--query <query>] [--env <name>]
+    \\  goodissues incidents get <id> [--env <name>]
+    \\  goodissues incidents report --body '<json>' [--env <name>]
+    \\  goodissues incidents update <id> --body '<json>' [--env <name>]
+    \\  goodissues incidents resolve <id> [--env <name>]
+    \\
+    \\Options:
+    \\  --query <query>    Raw query string without '?'
+    \\  --body <json>      Raw IncidentReportRequest or IncidentUpdateRequest JSON
+    \\  --env <name>       Use named environment
+    \\
+;
+
+pub const checks_help =
+    \\goodissues checks — Manage project HTTP checks.
+    \\
+    \\Usage:
+    \\  goodissues checks list --project <id> [--query <query>] [--env <name>]
+    \\  goodissues checks get <id> --project <id> [--env <name>]
+    \\  goodissues checks create --project <id> --body '<json>' [--env <name>]
+    \\  goodissues checks update <id> --project <id> --body '<json>' [--env <name>]
+    \\  goodissues checks delete <id> --project <id> [--env <name>]
+    \\  goodissues checks results <id> --project <id> [--query <query>] [--env <name>]
+    \\
+    \\Options:
+    \\  --project <id>     Project ID containing the check
+    \\  --query <query>    Raw query string without '?'
+    \\  --body <json>      Raw CheckRequest or CheckUpdateRequest JSON
+    \\  --env <name>       Use named environment
+    \\
+;
+
+pub const heartbeats_help =
+    \\goodissues heartbeats — Manage project heartbeat monitors.
+    \\
+    \\Usage:
+    \\  goodissues heartbeats list --project <id> [--query <query>] [--env <name>]
+    \\  goodissues heartbeats get <id> --project <id> [--env <name>]
+    \\  goodissues heartbeats create --project <id> --body '<json>' [--env <name>]
+    \\  goodissues heartbeats update <id> --project <id> --body '<json>' [--env <name>]
+    \\  goodissues heartbeats delete <id> --project <id> [--env <name>]
+    \\  goodissues heartbeats pings <id> --project <id> [--query <query>] [--env <name>]
+    \\  goodissues heartbeats ping <token> --project <id> [--body '<json>'] [--env <name>]
+    \\  goodissues heartbeats start <token> --project <id> [--body '<json>'] [--env <name>]
+    \\  goodissues heartbeats fail <token> --project <id> [--body '<json>'] [--env <name>]
+    \\
+    \\Options:
+    \\  --project <id>     Project ID containing the heartbeat
+    \\  --query <query>    Raw query string without '?'
+    \\  --body <json>      Raw HeartbeatRequest, HeartbeatUpdateRequest, or PingPayload JSON
+    \\  --env <name>       Use named environment
+    \\
+;
+
+pub const events_help =
+    \\goodissues events — Submit event batches.
+    \\
+    \\Usage:
+    \\  goodissues events batch --body '<json>' [--env <name>]
+    \\
+    \\Options:
+    \\  --body <json>      Raw batch event JSON request body
+    \\  --env <name>       Use named environment
     \\
 ;
 
