@@ -11,7 +11,29 @@ permissions:
   contents: read
 
 jobs:
+  validate:
+    name: Validate release version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check tag matches Cargo version
+        if: github.ref_type == 'tag'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import tomllib
+
+          with open("Cargo.toml", "rb") as manifest:
+              version = tomllib.load(manifest)["package"]["version"]
+          expected = f"v{version}"
+          if os.environ["TAG"] != expected:
+              raise SystemExit(f"Release tag must match Cargo.toml: {expected}")
+          PY
+
   build:
+    needs: validate
     name: ${{ matrix.asset }}
     runs-on: ${{ matrix.runner }}
     strategy:
