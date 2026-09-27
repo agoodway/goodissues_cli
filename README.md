@@ -303,7 +303,7 @@ goodissues cloud-ip-ranges sync-state
 
 ## Compatibility
 
-The Rust CLI preserves the Zig command set, typed flags, raw `--body` and
+The Rust CLI preserves the earlier Zig CLI's command set, typed flags, raw `--body` and
 `--query` overrides, readable output, and raw JSON output. `create` is also
 an alias for `report` on errors and incidents. Run `goodissues help <command>`
 for every option, including project updates and issue pagination.
@@ -333,13 +333,7 @@ cargo run -- --help
 ```
 
 Tests use temporary configuration directories and local HTTP servers. No API
-key or live service is needed. In the monorepo, compare against Zig:
-
-```sh
-cd cli-zig && zig build && cd ..
-cargo build --manifest-path cli-rust/Cargo.toml
-python3 cli-rust/scripts/parity.py cli-rust/target/debug/goodissues cli-zig/zig-out/bin/goodissues
-```
+key or live service is needed.
 
 ## Subtree publishing
 
