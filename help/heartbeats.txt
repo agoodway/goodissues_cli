@@ -1,0 +1,18 @@
+goodissues heartbeats — Manage project heartbeat monitors.
+
+Usage:
+  goodissues heartbeats list --project <id> [--query <query>] [--env <name>]
+  goodissues heartbeats get <id> --project <id> [--env <name>]
+  goodissues heartbeats create --project <id> --body '<json>' [--env <name>]
+  goodissues heartbeats update <id> --project <id> --body '<json>' [--env <name>]
+  goodissues heartbeats delete <id> --project <id> [--env <name>]
+  goodissues heartbeats pings <id> --project <id> [--query <query>] [--env <name>]
+  goodissues heartbeats ping <token> --project <id> [--body '<json>'] [--env <name>]
+  goodissues heartbeats start <token> --project <id> [--body '<json>'] [--env <name>]
+  goodissues heartbeats fail <token> --project <id> [--body '<json>'] [--env <name>]
+
+Options:
+  --project <id>     Project ID containing the heartbeat
+  --query <query>    Raw query string without '?'
+  --body <json>      Raw HeartbeatRequest, HeartbeatUpdateRequest, or PingPayload JSON
+  --env <name>       Use named environment

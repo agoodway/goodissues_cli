@@ -1,0 +1,115 @@
+name: Build and release
+
+on:
+  push:
+    branches: [main]
+    tags: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.asset }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            asset: goodissues-linux-amd64
+            binary: goodissues
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            asset: goodissues-linux-arm64
+            binary: goodissues
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+            asset: goodissues-darwin-arm64
+            binary: goodissues
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+            asset: goodissues-darwin-amd64
+            binary: goodissues
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            asset: goodissues-windows-amd64.exe
+            binary: goodissues.exe
+          - runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            asset: goodissues-windows-arm64.exe
+            binary: goodissues.exe
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+          components: clippy, rustfmt
+      - name: Check formatting
+        run: cargo fmt --check
+      - name: Lint
+        run: cargo clippy --locked --all-targets --target "$TARGET" -- -D warnings
+        env:
+          TARGET: ${{ matrix.target }}
+      - name: Test
+        run: cargo test --locked --target "$TARGET"
+        env:
+          TARGET: ${{ matrix.target }}
+      - name: Build release binary
+        run: cargo build --locked --release --target "$TARGET"
+        env:
+          TARGET: ${{ matrix.target }}
+      - name: Stage and smoke test
+        env:
+          TARGET: ${{ matrix.target }}
+          BINARY: ${{ matrix.binary }}
+          ASSET: ${{ matrix.asset }}
+        run: |
+          mkdir -p dist
+          cp "target/$TARGET/release/$BINARY" "dist/$ASSET"
+          "dist/$ASSET" --version
+          "dist/$ASSET" --help
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+          if-no-files-found: error
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: goodissues-*
+          path: dist
+          merge-multiple: true
+      - name: Check asset set and generate checksums
+        working-directory: dist
+        run: |
+          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 6
+          for asset in goodissues-linux-amd64 goodissues-linux-arm64 goodissues-darwin-arm64 goodissues-darwin-amd64 goodissues-windows-amd64.exe goodissues-windows-arm64.exe; do
+            test -s "$asset"
+          done
+          sha256sum goodissues-* > checksums.txt
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --verify-tag --title "$TAG" --generate-notes
+          fi

@@ -2,7 +2,7 @@
 
 CLI client for [goodissues.dev](https://goodissues.dev) — manage projects and track bugs and feature requests from the command line.
 
-Built in Zig with zero external dependencies. Single static binary (~1MB).
+Built in Rust. Distributed as a single executable for Linux, macOS, and Windows (amd64 and arm64). HTTPS uses Rustls; no system OpenSSL installation is required.
 
 ## Install
 
@@ -21,8 +21,8 @@ irm https://raw.githubusercontent.com/agoodway/goodissues_cli/main/install.ps1 |
 **From source:**
 
 ```sh
-zig build -Doptimize=ReleaseSafe
-cp zig-out/bin/goodissues /usr/local/bin/
+cargo build --release --locked
+cp target/release/goodissues /usr/local/bin/
 ```
 
 ## Quick Start
@@ -34,8 +34,8 @@ goodissues configure --url https://goodissues.dev --api-key sk_your_api_key
 # List all projects
 goodissues projects list
 
-# Create a project
-goodissues projects create --name "My App"
+# Create a project (prefix is required by the API)
+goodissues projects create --name "My App" --prefix MA
 
 # File a bug
 goodissues issues create --project <project-id> --title "Login broken on Safari" --type bug --priority high
@@ -84,8 +84,8 @@ goodissues projects list --json
 goodissues projects get <project-id>
 
 # Create a new project
-goodissues projects create --name "Backend API"
-goodissues projects create --name "Mobile App" --description "iOS and Android client"
+goodissues projects create --name "Backend API" --prefix API
+goodissues projects create --name "Mobile App" --prefix MOB --description "iOS and Android client"
 
 # Delete a project
 goodissues projects delete <project-id>
@@ -107,8 +107,8 @@ goodissues issues list --status new
 goodissues issues list --status in_progress
 goodissues issues list --status archived
 
-# Combine filters
-goodissues issues list --project <project-id> --status new
+# Combine filters, including type
+goodissues issues list --project <project-id> --status new --type bug
 
 # Get a single issue by ID
 goodissues issues get <issue-id>
@@ -135,6 +135,9 @@ goodissues issues create \
   --type incident \
   --priority critical
 
+# Update an issue
+goodissues issues update <issue-id> --status in_progress
+
 # Delete an issue
 goodissues issues delete <issue-id>
 ```
@@ -144,6 +147,48 @@ goodissues issues delete <issue-id>
 **Priorities:** `low`, `medium` (default), `high`, `critical`
 
 **Statuses:** `new` (default), `in_progress`, `archived`
+
+### errors
+
+List, search, report, and update error groups.
+
+```sh
+# List unresolved errors
+goodissues errors list --status unresolved --muted false
+
+# Search by stacktrace. At least one of these filters is required.
+goodissues errors search --module MyApp.Worker --function do_work --file lib/my_app/worker.ex
+
+# Get a readable report, including the first five stack frames
+goodissues errors get <id>
+
+# Report an error
+goodissues errors report --body '{"project_id":"<id>","kind":"exception","reason":"NullPointerException","fingerprint":"abc"}'
+
+# Update an error group
+goodissues errors update <id> --status resolved --muted true
+```
+
+### incidents
+
+List, report, update, and resolve incidents.
+
+```sh
+# List all incidents
+goodissues incidents list
+
+# Get a single incident by ID
+goodissues incidents get <id>
+
+# Report an incident
+goodissues incidents report --body '{"project_id":"<id>","title":"API returning 503 errors","severity":"critical"}'
+
+# Update an incident
+goodissues incidents update <id> --body '{"severity":"major"}'
+
+# Resolve an incident
+goodissues incidents resolve <id>
+```
 
 ### configure
 
@@ -217,35 +262,101 @@ goodissues issues create --env staging --project <id> --title "Test issue" --typ
 goodissues configure show
 ```
 
-## Build from Source
+## Checks and heartbeats
 
-Requires [Zig](https://ziglang.org/) 0.15.2 or later.
+These resources require `--project <project-id>` on every command.
 
 ```sh
-zig build                     # Debug build
-zig build test                # Run tests
-zig build run -- --help       # Build and run
-just release                  # Optimized native binary
-just dist                     # Cross-compile for all 6 platforms
+goodissues checks list --project <project-id>
+goodissues checks get <id> --project <project-id>
+goodissues checks create --project <project-id> --body '{"name":"API","url":"https://example.com"}'
+goodissues checks update <id> --project <project-id> --body '{"name":"API health"}'
+goodissues checks delete <id> --project <project-id>
+goodissues checks results <id> --project <project-id> --query 'page=2'
+goodissues heartbeats list --project <project-id>
+goodissues heartbeats get <id> --project <project-id>
+goodissues heartbeats create --project <project-id> --body '<json>'
+goodissues heartbeats update <id> --project <project-id> --body '<json>'
+goodissues heartbeats delete <id> --project <project-id>
+goodissues heartbeats pings <id> --project <project-id>
+goodissues heartbeats ping <token> --project <project-id>
+goodissues heartbeats start <token> --project <project-id> --body '{}'
+goodissues heartbeats fail <token> --project <project-id>
 ```
+
+Signals accept an optional `--body`. Lists and results accept `--query`.
+
+## Cloud IP ranges
+
+```sh
+goodissues cloud-ip-ranges list --snapshot-id <id> --page 2 --per-page 100
+goodissues cloud-ip-ranges sync-state
+```
+
+## Compatibility
+
+The Rust CLI preserves the Zig command set, typed flags, raw `--body` and
+`--query` overrides, readable output, and raw JSON output. `create` is also
+an alias for `report` on errors and incidents. Run `goodissues help <command>`
+for every option, including project updates and issue pagination.
+
+Existing `.goodissues.json` files work unchanged. When it is absent, the
+legacy `~/.goodissues/config.yaml` is imported once. Run `goodissues configure`
+without flags for interactive setup. Unix configuration files use mode 0600.
+
+Intentional fixes: bodyless heartbeat signals and incident resolution send
+POST requests successfully; the Zig 0.15.2 implementation panics on these.
+Cloud range filter values are percent-encoded to preserve special characters.
+
+## Build from Source
+
+Install the stable [Rust toolchain](https://rustup.rs/), then:
+
+```sh
+cargo build --locked
+cargo test --locked
+cargo fmt --check
+cargo clippy --locked --all-targets -- -D warnings
+cargo build --release --locked
+cargo run -- --help
+```
+
+Tests use temporary configuration directories and local HTTP servers. No API
+key or live service is needed. In the monorepo, compare against Zig:
+
+```sh
+cd cli-zig && zig build && cd ..
+cargo build --manifest-path cli-rust/Cargo.toml
+python3 cli-rust/scripts/parity.py cli-rust/target/debug/goodissues cli-zig/zig-out/bin/goodissues
+```
+
+## Subtree publishing
+
+`cli-rust/` in `agoodway/goodissues` is the source of the standalone
+`agoodway/goodissues_cli` repository. Commit changes in the monorepo, then run
+`just sync` from `cli-rust/` (or `bash cli-rust/scripts/sync-subtree.sh`). This
+uses a normal fast-forward subtree push and preserves the repository history.
+If standalone main has diverged, reconcile those commits before retrying;
+do not force-push. The Zig publish recipe is retired.
 
 ## Releasing
 
-Version is defined in `build.zig.zon` and derived everywhere else automatically.
+In a standalone clone, update the version in `Cargo.toml`, run `cargo check`
+to update `Cargo.lock`, commit and push main, then run `just publish vX.Y.Z`
+(or `bash scripts/publish.sh vX.Y.Z`). The tag must match the package version.
+A pushed tag triggers `.github/workflows/release.yml`, which tests and builds:
 
-```sh
-# Bump version (defaults to patch)
-just bump              # 0.1.0 -> 0.1.1
-just bump minor        # 0.1.0 -> 0.2.0
-just bump major        # 0.1.0 -> 1.0.0
+| Asset | GitHub runner |
+|---|---|
+| `goodissues-linux-amd64` | `ubuntu-latest` |
+| `goodissues-linux-arm64` | `ubuntu-24.04-arm` |
+| `goodissues-darwin-arm64` | `macos-latest` |
+| `goodissues-darwin-amd64` | `macos-15-intel` |
+| `goodissues-windows-amd64.exe` | `windows-latest` |
+| `goodissues-windows-arm64.exe` | `windows-11-arm` |
 
-# Publish a release (runs tests, builds all platforms, tags, pushes, creates GitHub release)
-just publish
-```
-
-`just publish` will:
-1. Run `zig build test`
-2. Cross-compile binaries for macOS, Linux, and Windows (amd64 + arm64)
-3. Generate SHA-256 checksums
-4. Create and push a git tag (`v0.1.0`)
-5. Create a GitHub release with all binaries attached
+All six builds must succeed before a GitHub release is created with the
+binaries and `checksums.txt`. Main pushes, pull requests and manual workflow
+runs build the same artifacts without publishing a release. Linux builds
+use the runner's glibc; they are not musl/static binaries. Installers retain
+the existing release asset names and environment overrides.

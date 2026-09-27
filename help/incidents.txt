@@ -1,0 +1,13 @@
+goodissues incidents — Manage incidents.
+
+Usage:
+  goodissues incidents list [--query <query>] [--env <name>]
+  goodissues incidents get <id> [--env <name>]
+  goodissues incidents report --body '<json>' [--env <name>]
+  goodissues incidents update <id> --body '<json>' [--env <name>]
+  goodissues incidents resolve <id> [--env <name>]
+
+Options:
+  --query <query>    Raw query string without '?'
+  --body <json>      Raw IncidentReportRequest or IncidentUpdateRequest JSON
+  --env <name>       Use named environment

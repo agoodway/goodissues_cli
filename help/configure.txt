@@ -1,0 +1,30 @@
+goodissues configure — Set up API connection.
+
+Usage:
+  goodissues configure [--env <name>] [--url <url>] [--api-key <key>]
+  goodissues configure show [--env <name>]
+
+Subcommands:
+  (none)     Set configuration values. Prompts for the base URL and API key when flags are omitted
+  show       Display current configuration (API key masked)
+
+Options:
+  --env <name>        Environment name (default: "default")
+  --url <url>         Base URL of GoodIssues server
+  --api-key <key>     API key (pk_* for read-only, sk_* for read/write)
+
+Behavior:
+  - Config stored at ~/.goodissues.json (Windows: %USERPROFILE%\.goodissues.json)
+  - Multiple environments supported (--env production, --env staging)
+  - First configured environment becomes the default
+  - 'show' masks API keys (shows first/last 4 chars)
+
+Exit Codes:
+  0    Success
+  1    Error (file write failure, no config found)
+
+Examples:
+  goodissues configure --url http://localhost:4000 --api-key sk_test123
+  goodissues configure --env production --url https://issues.example.com --api-key sk_live456
+  goodissues configure show
+  goodissues configure show --env production

@@ -1,0 +1,33 @@
+goodissues cloud-ip-ranges — Query cloud provider IP range data.
+
+Usage:
+  goodissues cloud-ip-ranges list [--snapshot-id <id>] [--page <n>] [--per-page <n>] [--env <name>]
+  goodissues cloud-ip-ranges sync-state [--env <name>]
+
+Subcommands:
+  list         List cloud IP ranges (default if no subcommand given)
+  sync-state   Show the latest successful sync snapshot metadata
+
+Options:
+  --snapshot-id <id>  Snapshot sync ID (defaults to latest successful)
+  --page <n>          Page number (default: 1)
+  --per-page <n>      Results per page (default: 1000, max: 5000)
+  --query <query>     Raw query string without '?' (overrides typed flags)
+  --env <name>        Use named environment
+
+Behavior:
+  - 'list' is the default when no subcommand is provided
+  - Read operations require an API key with cloud_ip_ranges:read scope
+  - For consistent full sync, first call sync-state, then pass --snapshot-id on each list page
+  - Maximum per_page is 5000 (default: 1000)
+
+Exit Codes:
+  0    Success
+  1    Error (API error, missing config, invalid arguments)
+
+Examples:
+  goodissues cloud-ip-ranges sync-state
+  goodissues cloud-ip-ranges list
+  goodissues cloud-ip-ranges list --snapshot-id abc123 --page 1 --per-page 5000
+  goodissues cloud-ip-ranges list --page 2 --per-page 1000
+  goodissues cloud-ip-ranges list --query "snapshot_id=abc123&page=1&per_page=5000"

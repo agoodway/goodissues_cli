@@ -1,0 +1,49 @@
+goodissues issues — Manage issues.
+
+Usage:
+  goodissues issues list [--project <id>] [--status <status>] [--type <type>] [--page <n>] [--per-page <n>] [--json] [--env <name>]
+  goodissues issues get <id> [--json] [--env <name>]
+  goodissues issues create --project <id> --title <title> --type <type> [--priority <priority>] [--status <status>] [--description <desc>] [--email <email>] [--env <name>]
+  goodissues issues update <id> [--title <title>] [--description <desc>] [--type <type>] [--status <status>] [--priority <priority>] [--email <email>] [--body '<json>'] [--env <name>]
+  goodissues issues delete <id> [--env <name>]
+
+Subcommands:
+  list       List issues (default if no subcommand given)
+  get        Show a single issue by ID
+  create     Create a new issue (requires sk_* key)
+  update     Update an issue with typed flags or --body
+  delete     Delete an issue (requires sk_* key)
+
+Options:
+  --project <id>          Filter by project ID (list) or set project (create)
+  --title <title>         Issue title (required for create, optional for update)
+  --type <type>           Issue type: bug, incident, feature_request (required for create)
+  --priority <priority>   Priority: low, medium, high, critical (default: medium)
+  --status <status>       Status: new, in_progress, archived (list filter, create, or update)
+  --description <desc>    Issue description
+  --email <email>         Submitter email (create or update)
+  --page <n>              Page number for list
+  --per-page <n>          Results per page for list
+  --body <json>           Raw JSON request body (overrides typed flags)
+  --query <query>         Raw query string for list (without '?')
+  --json                  Output raw JSON
+  --env <name>            Use named environment
+
+Behavior:
+  - 'list' is the default when no subcommand is provided
+  - Create and delete require a private API key (sk_*)
+  - Issues belong to a project (project_id required for create)
+  - Each issue has a key (e.g. PROJ-1) and sequential number
+
+Exit Codes:
+  0    Success
+  1    Error (API error, missing config, invalid arguments)
+
+Examples:
+  goodissues issues list
+  goodissues issues list --project abc123 --status new
+  goodissues issues get def456
+  goodissues issues create --project abc123 --title "Fix login" --type bug --priority high
+  goodissues issues update def456 --status in_progress
+  goodissues issues update def456 --body '{"status":"in_progress"}'
+  goodissues issues delete def456

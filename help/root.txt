@@ -1,0 +1,24 @@
+goodissues — CLI for GoodIssues bug and feature request tracking
+
+Usage:
+  goodissues <command> [options]
+  goodissues help <command>
+
+Commands:
+  projects     List, create, and manage projects
+  issues       List, create, and manage issues
+  errors       List, search, report, and update error groups
+  incidents    List, report, update, and resolve incidents
+  checks       Manage project HTTP checks
+  heartbeats   Manage project heartbeat monitors and pings
+  cloud-ip-ranges  Query cloud provider IP range data
+  configure        Set up API connection (URL, API key)
+  help         Show help for any command
+
+Global Options:
+  --help, -h       Show help for the current command
+  --version, -v    Print version and exit
+  --env <name>     Use a named environment from config
+  --json           Output raw JSON instead of formatted tables
+
+Run 'goodissues help <command>' for details on a specific command.

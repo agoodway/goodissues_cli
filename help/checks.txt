@@ -1,0 +1,15 @@
+goodissues checks — Manage project HTTP checks.
+
+Usage:
+  goodissues checks list --project <id> [--query <query>] [--env <name>]
+  goodissues checks get <id> --project <id> [--env <name>]
+  goodissues checks create --project <id> --body '<json>' [--env <name>]
+  goodissues checks update <id> --project <id> --body '<json>' [--env <name>]
+  goodissues checks delete <id> --project <id> [--env <name>]
+  goodissues checks results <id> --project <id> [--query <query>] [--env <name>]
+
+Options:
+  --project <id>     Project ID containing the check
+  --query <query>    Raw query string without '?'
+  --body <json>      Raw CheckRequest or CheckUpdateRequest JSON
+  --env <name>       Use named environment

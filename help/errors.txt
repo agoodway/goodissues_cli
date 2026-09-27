@@ -1,0 +1,25 @@
+goodissues errors — Manage error groups.
+
+Usage:
+  goodissues errors list [--status <status>] [--muted <true|false>] [--page <n>] [--per-page <n>] [--query <query>] [--env <name>]
+  goodissues errors search (--module <name> | --function <name> | --file <path>) [--page <n>] [--per-page <n>] [--query <query>] [--env <name>]
+  goodissues errors get <id> [--json] [--env <name>]
+  goodissues errors report --body '<json>' [--env <name>]
+  goodissues errors update <id> [--status <status>] [--muted <true|false>] [--body '<json>'] [--env <name>]
+
+Options:
+  --status <status>      resolved or unresolved (list filter or update)
+  --muted <true|false>   Muted filter for list, or muted value for update
+  --module <name>        Search by stacktrace module (search)
+  --function <name>      Search by stacktrace function (search)
+  --file <path>          Search by stacktrace file (search)
+  --page <n>             Page number
+  --per-page <n>         Results per page
+  --query <query>        Raw query string without '?' (overrides typed list and search flags)
+  --body <json>          Raw JSON request body (overrides typed update flags)
+  --json                 Print the raw response for get
+  --env <name>           Use named environment
+
+Behavior:
+  - search requires --module, --function, --file, or --query
+  - get prints a readable report, including the first five stack frames

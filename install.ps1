@@ -8,7 +8,7 @@ $InstallDir = if ($env:GOODISSUES_INSTALL_DIR) { $env:GOODISSUES_INSTALL_DIR } e
 $RepoUrl = if ($env:GOODISSUES_BASE_URL) { $env:GOODISSUES_BASE_URL } else { "https://github.com/agoodway/goodissues_cli" }
 
 $Arch = if ([Environment]::Is64BitOperatingSystem) {
-    if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "arm64" } else { "amd64" }
+    if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64" -or $env:PROCESSOR_ARCHITEW6432 -eq "ARM64") { "arm64" } else { "amd64" }
 } else {
     Write-Error "32-bit Windows is not supported"; exit 1
 }

@@ -1,86 +1,26 @@
-# goodissues build recipes
-
-version := `grep '\.version' build.zig.zon | head -1 | sed 's/.*"\(.*\)".*/\1/'`
-repo := "agoodway/goodissues_cli"
-dist := "dist"
-
-# Build debug binary
+# Run from either the monorepo subtree or a standalone clone.
 build:
-    zig build
+    cargo build --locked
 
-# Build release binary (native platform)
 release:
-    zig build -Doptimize=ReleaseSafe
+    cargo build --release --locked
 
-# Bump version in build.zig.zon (major, minor, or patch)
-bump part="patch":
-    #!/usr/bin/env sh
-    IFS='.' read -r major minor patch <<< "{{version}}"
-    case "{{part}}" in
-        major) major=$((major + 1)); minor=0; patch=0 ;;
-        minor) minor=$((minor + 1)); patch=0 ;;
-        patch) patch=$((patch + 1)) ;;
-        *) echo "Error: use 'major', 'minor', or 'patch'" >&2; exit 1 ;;
-    esac
-    new="${major}.${minor}.${patch}"
-    sed -i '' "s/\.version = \"{{version}}\"/\.version = \"${new}\"/" build.zig.zon
-    echo "{{version}} → ${new}"
-
-# Build, checksum, tag, and publish a GitHub release
-publish: test dist checksums
-    cd .. && git subtree push --prefix=cli-zig git@github.com:{{repo}}.git main
-    gh api repos/{{repo}}/git/refs -f ref="refs/tags/v{{version}}" -f sha="$(gh api repos/{{repo}}/commits/main --jq '.sha')"
-    gh release create "v{{version}}" {{dist}}/* --repo {{repo}} --title "v{{version}}" --generate-notes
-
-# Run with arguments
-run *ARGS:
-    zig build run -- {{ARGS}}
-
-# Run tests
 test:
-    zig build test
+    cargo test --locked
 
-# Build release binaries for all supported platforms into dist/
-dist: clean-dist
-    mkdir -p {{dist}}
-    @echo "Building darwin-arm64..."
-    zig build -Dtarget=aarch64-macos -Doptimize=ReleaseSafe
-    cp zig-out/bin/goodissues {{dist}}/goodissues-darwin-arm64
-    @echo "Building darwin-amd64..."
-    zig build -Dtarget=x86_64-macos -Doptimize=ReleaseSafe
-    cp zig-out/bin/goodissues {{dist}}/goodissues-darwin-amd64
-    @echo "Building linux-amd64..."
-    zig build -Dtarget=x86_64-linux -Doptimize=ReleaseSafe
-    cp zig-out/bin/goodissues {{dist}}/goodissues-linux-amd64
-    @echo "Building linux-arm64..."
-    zig build -Dtarget=aarch64-linux -Doptimize=ReleaseSafe
-    cp zig-out/bin/goodissues {{dist}}/goodissues-linux-arm64
-    @echo "Building windows-amd64..."
-    zig build -Dtarget=x86_64-windows -Doptimize=ReleaseSafe
-    cp zig-out/bin/goodissues.exe {{dist}}/goodissues-windows-amd64.exe
-    @echo "Building windows-arm64..."
-    zig build -Dtarget=aarch64-windows -Doptimize=ReleaseSafe
-    cp zig-out/bin/goodissues.exe {{dist}}/goodissues-windows-arm64.exe
-    @echo "Done. Binaries in {{dist}}/"
-    ls -lh {{dist}}/
+check:
+    cargo fmt --check
+    cargo clippy --locked --all-targets -- -D warnings
+    cargo test --locked
 
-# Generate checksums for dist binaries
-checksums:
-    cd {{dist}} && shasum -a 256 goodissues-* > checksums.txt
-    cat {{dist}}/checksums.txt
+run *ARGS:
+    cargo run -- {{ARGS}}
 
-# Regenerate API client from OpenAPI spec (requires manual fixes after)
-generate:
-    ~/.local/bin/openapi2zig generate -i ../app/openapi.json -o src/generated.zig
-    @echo "IMPORTANT: Generated code needs manual fixes for Zig 0.15.2 — see CLAUDE.md"
+# Export committed Rust changes from the monorepo to the standalone repository.
+sync:
+    bash scripts/sync-subtree.sh
 
-# Clean build artifacts
-clean:
-    rm -rf zig-out .zig-cache
-
-# Clean dist directory
-clean-dist:
-    rm -rf {{dist}}
-
-# Clean everything
-clean-all: clean clean-dist
+# Release from a standalone clone after updating Cargo.toml and Cargo.lock.
+# Pushing a tag triggers all six builds and publication in GitHub Actions.
+publish tag:
+    bash scripts/publish.sh {{quote(tag)}}

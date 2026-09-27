@@ -1,0 +1,41 @@
+goodissues projects — Manage projects.
+
+Usage:
+  goodissues projects list [--json] [--env <name>]
+  goodissues projects get <id> [--json] [--env <name>]
+  goodissues projects create --name <name> --prefix <prefix> [--description <desc>] [--env <name>]
+  goodissues projects update <id> [--name <name>] [--prefix <prefix>] [--description <desc>] [--body '<json>'] [--env <name>]
+  goodissues projects delete <id> [--env <name>]
+
+Subcommands:
+  list       List all projects (default if no subcommand given)
+  get        Show a single project by ID
+  create     Create a new project (requires sk_* key)
+  update     Update a project with --name, --prefix, --description, or --body
+  delete     Delete a project (requires sk_* key)
+
+Options:
+  --name <name>           Project name (required for create, optional for update)
+  --prefix <prefix>       Project prefix, 1-10 uppercase letters or numbers (required for create)
+  --description <desc>    Project description
+  --body <json>           Raw JSON request body (overrides typed flags)
+  --query <query>         Raw query string for list (without '?')
+  --json                  Output raw JSON
+  --env <name>            Use named environment
+
+Behavior:
+  - 'list' is the default when no subcommand is provided
+  - Create and delete require a private API key (sk_*)
+  - Read operations work with public keys (pk_*)
+
+Exit Codes:
+  0    Success
+  1    Error (API error, missing config, invalid arguments)
+
+Examples:
+  goodissues projects list
+  goodissues projects get abc123
+  goodissues projects create --name "My Project" --prefix MP --description "A project"
+  goodissues projects update abc123 --name "Renamed"
+  goodissues projects update abc123 --body '{"name":"Renamed"}'
+  goodissues projects delete abc123
