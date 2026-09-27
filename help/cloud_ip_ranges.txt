@@ -28,6 +28,9 @@ Exit Codes:
 Examples:
   goodissues cloud-ip-ranges sync-state
   goodissues cloud-ip-ranges list
-  goodissues cloud-ip-ranges list --snapshot-id abc123 --page 1 --per-page 5000
+  goodissues cloud-ip-ranges list --snapshot-id 00000000-0000-4000-8000-000000000001 --page 1 --per-page 5000
   goodissues cloud-ip-ranges list --page 2 --per-page 1000
-  goodissues cloud-ip-ranges list --query "snapshot_id=abc123&page=1&per_page=5000"
+  goodissues cloud-ip-ranges list --query "snapshot_id=00000000-0000-4000-8000-000000000001&page=1&per_page=5000"
+
+Availability:
+  list and sync-state return 404 when no successful snapshot exists.

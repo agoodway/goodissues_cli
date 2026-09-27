@@ -12,10 +12,18 @@ fn request(args: &[&str], status: u16, response: &str) -> (std::process::Output,
     request_bytes(args, status, response.as_bytes())
 }
 fn request_bytes(args: &[&str], status: u16, response: &[u8]) -> (std::process::Output, String) {
+    request_with_key(args, status, response, Some("sk_fixture"))
+}
+fn request_with_key(
+    args: &[&str],
+    status: u16,
+    response: &[u8],
+    key: Option<&str>,
+) -> (std::process::Output, String) {
     let home = TempDir::new().unwrap();
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     listener.set_nonblocking(true).unwrap();
-    fs::write(home.path().join(".goodissues.json"), serde_json::json!({"default_env":"test","environments":[{"name":"test","base_url":format!("http://{}",listener.local_addr().unwrap()),"api_key":"sk_fixture"}]}).to_string()).unwrap();
+    fs::write(home.path().join(".goodissues.json"), serde_json::json!({"default_env":"test","environments":[{"name":"test","base_url":format!("http://{}",listener.local_addr().unwrap()),"api_key":key}]}).to_string()).unwrap();
     let response = response.to_vec();
     let server = thread::spawn(move || {
         let deadline = Instant::now() + Duration::from_secs(3);
@@ -354,4 +362,31 @@ fn malformed_success_payloads_keep_zig_failure_and_fallback_behavior() {
     let (out, _) = request(&["errors", "get", "id"], 200, body);
     assert!(out.status.success());
     assert_eq!(out.stdout, format!("{body}\n").as_bytes());
+}
+
+#[test]
+fn heartbeat_signals_use_the_url_token_without_an_api_key() {
+    for operation in ["ping", "start", "fail"] {
+        let (out, wire) = request_with_key(
+            &["heartbeats", operation, "token", "--project=proj"],
+            204,
+            b"",
+            None,
+        );
+        assert!(
+            out.status.success(),
+            "{operation}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert!(wire.starts_with("POST /api/v1/projects/proj/heartbeats/token/ping"));
+        assert!(!wire.to_lowercase().contains("authorization:"));
+    }
+}
+
+#[test]
+fn authenticated_operations_still_require_an_api_key() {
+    let (out, wire) = request_with_key(&["heartbeats", "list", "--project=proj"], 200, b"{}", None);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("no API key configured"));
+    assert!(wire.is_empty());
 }

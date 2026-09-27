@@ -10,10 +10,12 @@ pub fn execute(request: &Request, args: &Args<'_>) -> Result<Vec<u8>, crate::out
         .base_url
         .as_deref()
         .ok_or("Error: no base URL configured. Run 'goodissues configure --url <url>'.")?;
-    let key = env
-        .api_key
-        .as_deref()
-        .ok_or("Error: no API key configured. Run 'goodissues configure --api-key <key>'.")?;
+    let key = env.api_key.as_deref();
+    if request.requires_api_key && key.is_none() {
+        return Err(
+            "Error: no API key configured. Run 'goodissues configure --api-key <key>'.".into(),
+        );
+    }
     let client = reqwest::blocking::Client::builder()
         .build()
         .map_err(|e| format!("Error: {e}"))?;
@@ -21,8 +23,10 @@ pub fn execute(request: &Request, args: &Args<'_>) -> Result<Vec<u8>, crate::out
         .map_err(|e| format!("Error: {e}"))?;
     let mut call = client
         .request(method, format!("{url}{}", request.path))
-        .bearer_auth(key)
         .header("Content-Type", "application/json");
+    if let Some(key) = key {
+        call = call.bearer_auth(key);
+    }
     if let Some(body) = &request.body {
         call = call.body(body.clone());
     }

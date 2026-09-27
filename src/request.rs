@@ -7,6 +7,7 @@ pub struct Request {
     pub body: Option<String>,
     pub expected: &'static [u16],
     pub operation: String,
+    pub requires_api_key: bool,
 }
 fn encode(value: &str) -> String {
     let mut out = String::new();
@@ -234,5 +235,7 @@ pub fn build(resource: &str, args: &Args<'_>) -> Result<Request, String> {
         body,
         expected,
         operation: operation.into(),
+        requires_api_key: !(resource == "heartbeats"
+            && matches!(operation, "ping" | "fail" | "start")),
     })
 }

@@ -31,6 +31,7 @@ fn run(argv: &[String]) -> Result<(), output::Error> {
         return Ok(());
     }
     let args = args::Args(&argv[1..]);
+    args.validate(command)?;
     if command == "configure" {
         return config::run(&args).map_err(Into::into);
     }

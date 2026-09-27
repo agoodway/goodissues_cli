@@ -63,7 +63,14 @@ def compare(args, status=200, data=None, fixture=None, configured=True, input=""
             assert server.requests[0][0] == "POST", server.requests
             count += 1
             return
-        assert outputs[0] == outputs[1], (args, outputs)
+        help_command = args[1] if args[:1] == ["help"] and len(args) > 1 else args[0] if args and args[-1] == "--help" else None
+        if help_command in ["heartbeats", "errors", "incidents", "cloud-ip-ranges"]:
+            old_help = outputs[1][1]
+            if help_command == "cloud-ip-ranges":
+                old_help = old_help.replace("abc123", "00000000-0000-4000-8000-000000000001")
+            assert outputs[0][0] == outputs[1][0] == 0 and outputs[0][1].startswith(old_help), (args, outputs)
+        else:
+            assert outputs[0] == outputs[1], (args, outputs)
         assert len(server.requests) in (0, 2), (args, server.requests)
         if server.requests:
             assert server.requests[0] == server.requests[1], (args, server.requests)

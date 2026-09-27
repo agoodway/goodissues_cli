@@ -11,3 +11,8 @@ Options:
   --query <query>    Raw query string without '?'
   --body <json>      Raw IncidentReportRequest or IncidentUpdateRequest JSON
   --env <name>       Use named environment
+
+Payloads:
+  report requires project_id, title, fingerprint, and source.
+  severity may be info, warning, or critical.
+  update accepts {"muted":true} or {"muted":false}; use resolve to resolve an incident.

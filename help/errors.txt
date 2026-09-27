@@ -23,3 +23,7 @@ Options:
 Behavior:
   - search requires --module, --function, --file, or --query
   - get prints a readable report, including the first five stack frames
+
+Report payload:
+  Requires project_id, kind, reason, and a 64-character fingerprint.
+  An optional trace_id must be a 32-character hexadecimal string.

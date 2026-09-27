@@ -16,3 +16,7 @@ Options:
   --query <query>    Raw query string without '?'
   --body <json>      Raw HeartbeatRequest, HeartbeatUpdateRequest, or PingPayload JSON
   --env <name>       Use named environment
+
+Authentication:
+  ping, start, and fail authenticate with the URL token; only a configured base URL is needed.
+  All other heartbeat commands require a configured API key.

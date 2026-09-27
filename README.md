@@ -163,15 +163,20 @@ goodissues errors search --module MyApp.Worker --function do_work --file lib/my_
 goodissues errors get <id>
 
 # Report an error
-goodissues errors report --body '{"project_id":"<id>","kind":"exception","reason":"NullPointerException","fingerprint":"abc"}'
+goodissues errors report --body '{"project_id":"<id>","kind":"exception","reason":"NullPointerException","fingerprint":"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"}'
 
 # Update an error group
 goodissues errors update <id> --status resolved --muted true
 ```
 
+Error fingerprints must be 64 characters (typically a SHA-256 hex digest). If
+provided, `trace_id` must be a 32-character hexadecimal trace ID.
+
 ### incidents
 
-List, report, update, and resolve incidents.
+List, report, mute, and resolve incidents. Reports require `project_id`, `title`,
+`fingerprint`, and `source`; severity is `info`, `warning`, or `critical`.
+Updates accept `muted`; use `resolve` to resolve an incident.
 
 ```sh
 # List all incidents
@@ -181,10 +186,10 @@ goodissues incidents list
 goodissues incidents get <id>
 
 # Report an incident
-goodissues incidents report --body '{"project_id":"<id>","title":"API returning 503 errors","severity":"critical"}'
+goodissues incidents report --body '{"project_id":"<id>","title":"API returning 503 errors","fingerprint":"api-503","source":"cli","severity":"critical"}'
 
-# Update an incident
-goodissues incidents update <id> --body '{"severity":"major"}'
+# Mute an incident
+goodissues incidents update <id> --body '{"muted":true}'
 
 # Resolve an incident
 goodissues incidents resolve <id>
@@ -284,7 +289,10 @@ goodissues heartbeats start <token> --project <project-id> --body '{}'
 goodissues heartbeats fail <token> --project <project-id>
 ```
 
-Signals accept an optional `--body`. Lists and results accept `--query`.
+Signals accept an optional `--body`. They authenticate using the heartbeat token,
+so an environment configured with only `--url` can send `ping`, `start`, and `fail`.
+Managing heartbeats and reading their history still requires an API key.
+Lists and results accept `--query`.
 
 ## Cloud IP ranges
 
@@ -307,6 +315,9 @@ without flags for interactive setup. Unix configuration files use mode 0600.
 Intentional fixes: bodyless heartbeat signals and incident resolution send
 POST requests successfully; the Zig 0.15.2 implementation panics on these.
 Cloud range filter values are percent-encoded to preserve special characters.
+Missing option values and unknown or unsupported options now fail before any
+request is sent; this prevents a missing `--env` value from selecting the default
+environment. Use `--description=--literal` for values beginning with `--`.
 
 ## Build from Source
 
