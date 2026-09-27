@@ -325,20 +325,22 @@ fn raw_responses_preserve_non_utf8_bytes() {
 #[test]
 #[cfg(unix)]
 fn output_write_failures_exit_without_panicking() {
-    use std::process::Stdio;
+    use std::{
+        os::{fd::OwnedFd, unix::net::UnixStream},
+        process::Stdio,
+    };
+    let (writer, reader) = UnixStream::pair().unwrap();
+    drop(reader);
+    let fd: OwnedFd = writer.into();
     let out = Command::new(env!("CARGO_BIN_EXE_goodissues"))
         .arg("--help")
-        .stdout(Stdio::from(
-            fs::OpenOptions::new()
-                .write(true)
-                .open("/dev/full")
-                .unwrap(),
-        ))
+        .stdout(Stdio::from(fd))
         .output()
         .unwrap();
     assert_eq!(out.status.code(), Some(1));
     assert!(!String::from_utf8_lossy(&out.stderr).contains("panicked"));
 }
+
 #[test]
 fn malformed_success_payloads_keep_zig_failure_and_fallback_behavior() {
     for body in [r#"{"data":null}"#, r#"{"data":{"id":123}}"#] {

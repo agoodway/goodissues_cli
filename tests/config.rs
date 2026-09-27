@@ -104,6 +104,7 @@ fn imports_legacy_config_only_when_json_missing() {
         "api_key: sk_new\n",
     )
     .unwrap();
+    assert!(cli(&h, &["configure", "show"], "").status.success());
     let data: serde_json::Value =
         serde_json::from_slice(&fs::read(h.path().join(".goodissues.json")).unwrap()).unwrap();
     assert_eq!(data["environments"][0]["api_key"], "sk_old");
