@@ -28,6 +28,9 @@ fn request_bytes(args: &[&str], status: u16, response: &[u8]) -> (std::process::
             }
             thread::sleep(Duration::from_millis(5));
         };
+        // Windows and BSD/macOS can inherit the listener's nonblocking mode.
+        // Only accept() is polled; request reads must block with a timeout.
+        stream.set_nonblocking(false).unwrap();
         stream
             .set_read_timeout(Some(Duration::from_secs(3)))
             .unwrap();
