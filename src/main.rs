@@ -1,11 +1,13 @@
 mod args;
 mod client;
+mod commands;
 mod config;
 mod format;
 mod help;
 mod output;
 mod request;
-mod response;
+
+use output::Error;
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -14,51 +16,39 @@ fn main() {
         std::process::exit(1);
     }
 }
-fn run(argv: &[String]) -> Result<(), output::Error> {
+fn run(argv: &[String]) -> Result<(), Error> {
     let Some(command) = argv.first().map(String::as_str) else {
-        return Err(help::text("").trim_end_matches('\n').into());
+        return Err(Error::Usage(help::text("").trim_end().into()));
     };
     if matches!(command, "help" | "--help" | "-h") {
-        output::write(help::text(argv.get(1).map(String::as_str).unwrap_or("")))?;
-        return Ok(());
+        return output::write(help::text(argv.get(1).map_or("", String::as_str)));
     }
     if matches!(command, "--version" | "-v") {
-        output::write(format!("goodissues {}\n", env!("CARGO_PKG_VERSION")))?;
-        return Ok(());
+        return output::write(format!("goodissues {}\n", env!("CARGO_PKG_VERSION")));
     }
     if argv.len() >= 2 && matches!(argv.last().map(String::as_str), Some("--help" | "-h")) {
-        output::write(help::text(command))?;
-        return Ok(());
+        return output::write(help::text(command));
     }
-    let args = args::Args(&argv[1..]);
-    args.validate(command)?;
+    let args = args::Args::parse(&argv[1..]);
     if command == "configure" {
-        return config::run(&args).map_err(Into::into);
+        return config::run(&args);
     }
-    if ![
-        "projects",
-        "issues",
-        "errors",
-        "incidents",
-        "checks",
-        "heartbeats",
-        "cloud-ip-ranges",
-    ]
-    .contains(&command)
-    {
-        return Err(format!(
+    let resource = commands::find(command).ok_or_else(|| {
+        format!(
             "Unknown command: {command}\n\n{}",
             help::text("").trim_end()
         )
-        .into());
-    }
-    let request = request::build(command, &args)?;
-    let body = client::execute(&request, &args)?;
-    output::write(format::response_bytes(
+    })?;
+    let name = args.positional(0).unwrap_or("list");
+    let operation = resource.operation(name).ok_or_else(|| {
+        format!("Unknown {command} subcommand: {name}. Run 'goodissues help {command}' for usage.")
+    })?;
+    args.validate(
         command,
-        &request.operation,
-        &body,
-        args.has("--json"),
-    )?)?;
-    Ok(())
+        |flag| operation.accepts(resource, flag),
+        1 + usize::from(operation.takes_id()),
+    )?;
+    let request = request::build(resource, operation, &args)?;
+    let body = client::execute(&request, &args)?;
+    output::write(format::render(operation.view, &body, args.json())?)
 }

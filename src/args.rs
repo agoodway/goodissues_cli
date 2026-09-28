@@ -1,136 +1,139 @@
-/// Match the Zig CLI's flag/value and positional conventions.
-pub struct Args<'a>(pub &'a [String]);
-impl<'a> Args<'a> {
-    pub fn flag(&self, name: &str) -> Option<&'a str> {
-        for (i, arg) in self.0.iter().enumerate() {
-            if arg == name {
-                if let Some(value) = self.0.get(i + 1) {
-                    return Some(value);
-                }
-            } else if let Some(value) = arg.strip_prefix(name).and_then(|s| s.strip_prefix('=')) {
-                return Some(value);
-            }
-        }
-        None
-    }
-    pub fn has(&self, name: &str) -> bool {
-        self.0.iter().any(|arg| arg == name)
-    }
-    pub fn positional(&self, index: usize) -> Option<&'a str> {
-        let mut args = self.0.iter();
-        let mut count = 0;
-        while let Some(arg) = args.next() {
-            if arg.starts_with("--") {
-                if !arg.contains('=') && arg != "--json" {
-                    args.next();
-                }
-                continue;
-            }
-            if arg.starts_with('-') && arg.len() > 1 {
-                continue;
-            }
-            if count == index {
-                return Some(arg);
-            }
-            count += 1;
-        }
-        None
-    }
-    pub fn required(&self, name: &str) -> Result<&'a str, String> {
-        self.flag(name)
-            .ok_or_else(|| format!("Error: {name} is required."))
-    }
-}
+use crate::output::Error;
 
-impl Args<'_> {
-    /// Reject typos and missing values before falling back to a default environment
-    /// or sending a request. Literal values starting with `--` use `--flag=value`.
-    pub fn validate(&self, command: &str) -> Result<(), String> {
-        let operation = self.positional(0).unwrap_or("list");
-        let allowed = options(command, operation);
-        let mut args = self.0.iter();
-        while let Some(arg) = args.next() {
-            if !arg.starts_with('-') || arg == "-" {
-                continue;
+/// Arguments after the command name. Every option except `--json` takes a
+/// value, written `--flag value` or `--flag=value`; values beginning with `--`
+/// must use the `=` form. When an option repeats, the last value wins.
+pub struct Args<'a> {
+    positionals: Vec<&'a str>,
+    options: Vec<(&'a str, Option<&'a str>)>,
+    json: bool,
+}
+impl<'a> Args<'a> {
+    pub fn parse(argv: &'a [String]) -> Self {
+        let mut args = Self {
+            positionals: Vec::new(),
+            options: Vec::new(),
+            json: false,
+        };
+        let mut argv = argv.iter().map(String::as_str).peekable();
+        while let Some(arg) = argv.next() {
+            if arg == "--json" {
+                args.json = true;
+            } else if !arg.starts_with('-') || arg == "-" {
+                args.positionals.push(arg);
+            } else if let Some((name, value)) = arg.split_once('=') {
+                args.options.push((name, Some(value)));
+            } else {
+                let value = argv
+                    .next_if(|value| !value.starts_with("--") && !matches!(*value, "-h" | "-v"));
+                args.options.push((arg, value));
             }
-            let (name, inline) = arg
-                .split_once('=')
-                .map_or((arg.as_str(), None), |(name, value)| (name, Some(value)));
-            if name == "--json" && inline.is_none() {
-                continue;
-            }
-            if name != "--env" && !allowed.contains(&name) {
+        }
+        args
+    }
+    /// Reject typos, missing values, and stray arguments before falling back to
+    /// a default environment or sending a request.
+    pub fn validate(
+        &self,
+        command: &str,
+        allowed: impl Fn(&str) -> bool,
+        max_positionals: usize,
+    ) -> Result<(), Error> {
+        for (name, value) in &self.options {
+            if *name != "--env" && !allowed(name) {
                 return Err(format!(
-                    "Error: Unknown option: {name}. Run 'goodissues help {command}' for options."
-                ));
+                    "Unknown option: {name}. Run 'goodissues help {command}' for options."
+                )
+                .into());
             }
-            if inline.is_none() {
-                match args.next() {
-                    Some(value)
-                        if !value.starts_with("--") && !matches!(value.as_str(), "-h" | "-v") => {}
-                    _ => return Err(format!("Error: {name} requires a value.")),
-                }
+            if value.is_none() {
+                return Err(format!("{name} requires a value.").into());
             }
+        }
+        if let Some(extra) = self.positionals.get(max_positionals) {
+            return Err(format!(
+                "Unexpected argument: {extra}. Run 'goodissues help {command}' for usage."
+            )
+            .into());
         }
         Ok(())
     }
+    pub fn flag(&self, name: &str) -> Option<&'a str> {
+        self.options
+            .iter()
+            .rev()
+            .find(|(option, _)| *option == name)
+            .and_then(|(_, value)| *value)
+    }
+    /// A flag's value, treating an empty value as absent.
+    pub fn nonempty(&self, name: &str) -> Option<&'a str> {
+        self.flag(name).filter(|value| !value.is_empty())
+    }
+    pub fn required(&self, name: &str) -> Result<&'a str, Error> {
+        self.nonempty(name)
+            .ok_or_else(|| format!("{name} is required.").into())
+    }
+    pub fn positional(&self, index: usize) -> Option<&'a str> {
+        self.positionals.get(index).copied()
+    }
+    pub fn json(&self) -> bool {
+        self.json
+    }
 }
 
-fn options(command: &str, operation: &str) -> &'static [&'static str] {
-    match (command, operation) {
-        ("configure", "show") => &[],
-        ("configure", _) => &["--url", "--api-key"],
-        ("projects", "list") => &["--query"],
-        ("projects", "create" | "update") => &["--name", "--prefix", "--description", "--body"],
-        ("issues", "list") => &[
-            "--project",
-            "--status",
-            "--type",
-            "--page",
-            "--per-page",
-            "--query",
-        ],
-        ("issues", "create") => &[
-            "--project",
-            "--title",
-            "--type",
-            "--status",
-            "--priority",
-            "--description",
-            "--email",
-            "--body",
-        ],
-        ("issues", "update") => &[
-            "--title",
-            "--type",
-            "--status",
-            "--priority",
-            "--description",
-            "--email",
-            "--body",
-        ],
-        ("errors", "list") => &["--status", "--muted", "--page", "--per-page", "--query"],
-        ("errors", "search") => &[
-            "--module",
-            "--function",
-            "--file",
-            "--page",
-            "--per-page",
-            "--query",
-        ],
-        ("errors", "update") => &["--status", "--muted", "--body"],
-        ("errors" | "incidents", "report" | "create") | ("incidents", "update") => &["--body"],
-        ("incidents", "list") | ("cloud-ip-ranges", "list") => {
-            if command == "incidents" {
-                &["--query"]
-            } else {
-                &["--snapshot-id", "--page", "--per-page", "--query"]
-            }
-        }
-        ("checks" | "heartbeats", "list" | "results" | "pings") => &["--project", "--query"],
-        ("checks" | "heartbeats", "create" | "update")
-        | ("heartbeats", "ping" | "fail" | "start") => &["--project", "--body"],
-        ("checks" | "heartbeats", "get" | "delete") => &["--project"],
-        _ => &[],
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn strings(args: &[&str]) -> Vec<String> {
+        args.iter().map(|&arg| arg.into()).collect()
+    }
+
+    #[test]
+    fn values_positionals_and_json_are_separated() {
+        let argv = strings(&["get", "--env", "qa", "id", "--json", "--page=-1", "-"]);
+        let args = Args::parse(&argv);
+        assert_eq!(args.positional(0), Some("get"));
+        assert_eq!(args.positional(1), Some("id"));
+        assert_eq!(args.positional(2), Some("-"));
+        assert_eq!(args.flag("--env"), Some("qa"));
+        assert_eq!(args.flag("--page"), Some("-1"));
+        assert!(args.json());
+    }
+
+    #[test]
+    fn the_last_repeated_option_wins() {
+        let argv = strings(&["--status", "new", "--status=archived"]);
+        assert_eq!(Args::parse(&argv).flag("--status"), Some("archived"));
+    }
+
+    #[test]
+    fn empty_values_do_not_satisfy_required_flags() {
+        let argv = strings(&["--name="]);
+        let args = Args::parse(&argv);
+        assert_eq!(args.flag("--name"), Some(""));
+        assert!(args.required("--name").is_err());
+    }
+
+    #[test]
+    fn validation_reports_unknown_options_before_missing_values() {
+        let argv = strings(&["--typo"]);
+        let Err(Error::Message(message)) = Args::parse(&argv).validate("x", |_| false, 1) else {
+            panic!("expected an error");
+        };
+        assert!(message.starts_with("Unknown option: --typo"));
+        let argv = strings(&["--status", "--json"]);
+        let Err(Error::Message(message)) = Args::parse(&argv).validate("x", |_| true, 1) else {
+            panic!("expected an error");
+        };
+        assert_eq!(message, "--status requires a value.");
+    }
+
+    #[test]
+    fn validation_rejects_extra_positionals() {
+        let argv = strings(&["get", "a", "b"]);
+        let args = Args::parse(&argv);
+        assert!(args.validate("x", |_| true, 2).is_err());
+        assert!(args.validate("x", |_| true, 3).is_ok());
     }
 }

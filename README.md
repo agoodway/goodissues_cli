@@ -223,7 +223,7 @@ All commands support these options:
 | Flag | Description |
 |------|-------------|
 | `--env <name>` | Use a specific configured environment |
-| `--json` | Output raw JSON response |
+| `--json` | Print the raw API response instead of a formatted view |
 | `--help`, `-h` | Show help for the current command |
 | `--version`, `-v` | Print version and exit |
 
@@ -236,7 +236,7 @@ Get your API key at [goodissues.dev](https://goodissues.dev).
 
 ## JSON Output
 
-Add `--json` to any command to get raw JSON instead of formatted tables. Useful for piping to `jq` or other tools:
+Projects, issues, and `errors get` print formatted tables and details by default; add `--json` to get the raw API response instead. Every other command always prints the raw JSON response. Useful for piping to `jq` or other tools:
 
 ```sh
 # Get all projects as JSON
@@ -311,6 +311,11 @@ for every option, including project updates and issue pagination.
 Existing `.goodissues.json` files work unchanged. When it is absent, the
 legacy `~/.goodissues/config.yaml` is imported once. Run `goodissues configure`
 without flags for interactive setup. Unix configuration files use mode 0600.
+Configuration updates replace the file atomically; invalid existing JSON is
+reported without overwriting it. Trailing slashes in base URLs are ignored.
+Path IDs are percent-encoded; empty IDs and dot-only path segments are rejected.
+Table cells occupy one line and are truncated at 60 display columns. Use `get`
+or `--json` to see complete values.
 
 Intentional fixes: bodyless heartbeat signals and incident resolution send
 POST requests successfully; the Zig 0.15.2 implementation panics on these.
@@ -318,10 +323,20 @@ Cloud range filter values are percent-encoded to preserve special characters.
 Missing option values and unknown or unsupported options now fail before any
 request is sent; this prevents a missing `--env` value from selecting the default
 environment. Use `--description=--literal` for values beginning with `--`.
+When an option is repeated, the last value wins. Extra positional arguments and
+unknown subcommands are rejected.
+
+Formatted reads (`list` and `get` for projects and issues, and `errors get`) fail
+with `Error: unexpected API response` followed by the response body when the API
+returns an unexpected shape. Creates and updates have already succeeded at that
+point, so they print the raw response instead.
+
+Interactive `configure` does not echo the API key when run in a terminal.
+Bodyless POST requests send `Content-Length: 0`. Requests time out after 30 seconds.
 
 ## Build from Source
 
-Install the stable [Rust toolchain](https://rustup.rs/), then:
+Install the stable [Rust toolchain](https://rustup.rs/) (1.88 or newer), then:
 
 ```sh
 cargo build --locked

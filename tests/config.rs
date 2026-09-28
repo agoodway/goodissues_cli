@@ -109,3 +109,39 @@ fn imports_legacy_config_only_when_json_missing() {
         serde_json::from_slice(&fs::read(h.path().join(".goodissues.json")).unwrap()).unwrap();
     assert_eq!(data["environments"][0]["api_key"], "sk_old");
 }
+
+#[test]
+fn malformed_config_is_preserved_and_reported() {
+    let h = TempDir::new().unwrap();
+    let path = h.path().join(".goodissues.json");
+    let original = br#"{"default_env":"a","environments":[{"name":"a","api_key":"sk_keep"}],}"#;
+    for args in [
+        vec!["configure", "--env=b", "--api-key=sk_new"],
+        vec!["configure", "show"],
+        vec!["projects", "list"],
+    ] {
+        fs::write(&path, original).unwrap();
+        let out = cli(&h, &args, "");
+        assert_eq!(fs::read(&path).unwrap(), original);
+        assert!(!out.status.success());
+        let error = String::from_utf8_lossy(&out.stderr);
+        assert!(
+            error.contains(".goodissues.json") && error.contains("trailing comma"),
+            "{error}"
+        );
+        assert!(!error.contains("configure' first"));
+    }
+}
+
+#[test]
+fn saved_base_url_has_no_trailing_slashes() {
+    let h = TempDir::new().unwrap();
+    assert!(
+        cli(&h, &["configure", "--url=http://localhost:4000///"], "")
+            .status
+            .success()
+    );
+    let data: serde_json::Value =
+        serde_json::from_slice(&fs::read(h.path().join(".goodissues.json")).unwrap()).unwrap();
+    assert_eq!(data["environments"][0]["base_url"], "http://localhost:4000");
+}

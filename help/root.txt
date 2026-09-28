@@ -19,6 +19,7 @@ Global Options:
   --help, -h       Show help for the current command
   --version, -v    Print version and exit
   --env <name>     Use a named environment from config
-  --json           Output raw JSON instead of formatted tables
+  --json           Print the raw API response instead of a formatted view
+                   (commands without a formatted view always print JSON)
 
 Run 'goodissues help <command>' for details on a specific command.

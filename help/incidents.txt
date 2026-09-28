@@ -4,6 +4,7 @@ Usage:
   goodissues incidents list [--query <query>] [--env <name>]
   goodissues incidents get <id> [--env <name>]
   goodissues incidents report --body '<json>' [--env <name>]
+  goodissues incidents create --body '<json>' [--env <name>]   (alias for report)
   goodissues incidents update <id> --body '<json>' [--env <name>]
   goodissues incidents resolve <id> [--env <name>]
 

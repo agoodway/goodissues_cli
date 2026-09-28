@@ -23,7 +23,7 @@ fn request_with_key(
     let home = TempDir::new().unwrap();
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     listener.set_nonblocking(true).unwrap();
-    fs::write(home.path().join(".goodissues.json"), serde_json::json!({"default_env":"test","environments":[{"name":"test","base_url":format!("http://{}",listener.local_addr().unwrap()),"api_key":key}]}).to_string()).unwrap();
+    fs::write(home.path().join(".goodissues.json"), serde_json::json!({"default_env":"test","environments":[{"name":"test","base_url":format!("http://{}/",listener.local_addr().unwrap()),"api_key":key}]}).to_string()).unwrap();
     let response = response.to_vec();
     let server = thread::spawn(move || {
         let deadline = Instant::now() + Duration::from_secs(3);
@@ -183,6 +183,10 @@ fn every_api_operation_uses_compatible_route_and_method() {
             wire.to_lowercase()
                 .contains("content-type: application/json\r\n")
         );
+        assert!(wire.to_lowercase().contains(&format!(
+            "user-agent: goodissues/{}\r\n",
+            env!("CARGO_PKG_VERSION")
+        )));
         if argv.contains(&"--body") {
             assert!(wire.ends_with("{\"title\":\"raw\"}"));
         }
@@ -353,13 +357,23 @@ fn output_write_failures_exit_without_panicking() {
 }
 
 #[test]
-fn malformed_success_payloads_keep_zig_failure_and_fallback_behavior() {
-    for body in [r#"{"data":null}"#, r#"{"data":{"id":123}}"#] {
-        let (out, _) = request(&["projects", "get", "id"], 200, body);
-        assert_eq!(out.status.code(), Some(1));
+fn malformed_reads_fail_and_echo_the_response() {
+    for (args, body) in [
+        (["projects", "get", "id"], r#"{"data":null}"#),
+        (["projects", "get", "id"], r#"{"data":{"id":123}}"#),
+        (["errors", "get", "id"], r#"{"data":{"id":123}}"#),
+    ] {
+        let (out, _) = request(&args, 200, body);
+        assert_eq!(out.status.code(), Some(1), "{args:?} {body}");
+        assert!(out.stdout.is_empty());
+        assert_eq!(
+            String::from_utf8_lossy(&out.stderr),
+            format!("Error: unexpected API response\n{body}\n")
+        );
     }
+    // The write succeeded, so an unexpected shape still prints the response.
     let body = r#"{"data":{"id":123}}"#;
-    let (out, _) = request(&["errors", "get", "id"], 200, body);
+    let (out, _) = request(&["issues", "update", "id", "--title=x"], 200, body);
     assert!(out.status.success());
     assert_eq!(out.stdout, format!("{body}\n").as_bytes());
 }
@@ -379,7 +393,10 @@ fn heartbeat_signals_use_the_url_token_without_an_api_key() {
             String::from_utf8_lossy(&out.stderr)
         );
         assert!(wire.starts_with("POST /api/v1/projects/proj/heartbeats/token/ping"));
-        assert!(!wire.to_lowercase().contains("authorization:"));
+        let headers = wire.to_lowercase();
+        assert!(!headers.contains("authorization:"));
+        // Some proxies reject bodyless POSTs that omit the length.
+        assert!(headers.contains("content-length: 0\r\n"), "{wire}");
     }
 }
 
@@ -389,4 +406,26 @@ fn authenticated_operations_still_require_an_api_key() {
     assert_eq!(out.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&out.stderr).contains("no API key configured"));
     assert!(wire.is_empty());
+}
+
+#[test]
+fn path_parameters_cannot_change_the_route() {
+    for (args, path) in [
+        (
+            vec!["issues", "get", "../projects?x=1", "--json"],
+            "/api/v1/issues/..%2Fprojects%3Fx%3D1",
+        ),
+        (
+            vec!["checks", "list", "--project=a/../../issues"],
+            "/api/v1/projects/a%2F..%2F..%2Fissues/checks",
+        ),
+        (
+            vec!["issues", "get", "café #1%", "--json"],
+            "/api/v1/issues/caf%C3%A9%20%231%25",
+        ),
+    ] {
+        let (out, wire) = request(&args, 200, "{}");
+        assert!(out.status.success());
+        assert!(wire.starts_with(&format!("GET {path} HTTP/1.1")), "{wire}");
+    }
 }

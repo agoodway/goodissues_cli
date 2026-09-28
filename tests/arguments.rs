@@ -51,3 +51,37 @@ fn unknown_and_inapplicable_options_are_rejected() {
         );
     }
 }
+
+#[test]
+fn commands_and_subcommands_are_checked_before_options() {
+    let home = TempDir::new().unwrap();
+    for (args, expected) in [
+        (vec!["foo", "--bar"], "Error: Unknown command: foo"),
+        (
+            vec!["issues", "lst", "--status", "new"],
+            "Error: Unknown issues subcommand: lst",
+        ),
+        (
+            vec!["configure", "shwo"],
+            "Error: Unknown configure subcommand: shwo",
+        ),
+        (
+            vec!["issues", "get", "a", "b"],
+            "Error: Unexpected argument: b",
+        ),
+        (
+            vec!["projects", "list", "extra"],
+            "Error: Unexpected argument: extra",
+        ),
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_goodissues"))
+            .args(&args)
+            .env("HOME", home.path())
+            .env("USERPROFILE", home.path())
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(1), "{args:?}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.starts_with(expected), "{args:?}: {stderr}");
+    }
+}

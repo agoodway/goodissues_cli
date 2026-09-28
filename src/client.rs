@@ -1,42 +1,68 @@
-use crate::{args::Args, config::Config, request::Request};
+use crate::{args::Args, commands::Method, config::Config, output::Error, request::Request};
+use std::time::Duration;
 
-pub fn execute(request: &Request, args: &Args<'_>) -> Result<Vec<u8>, crate::output::Error> {
-    let config = Config::load()
-        .map_err(|_| "Error: could not load config. Run 'goodissues configure' first.")?;
+const TIMEOUT: Duration = Duration::from_secs(30);
+
+impl Method {
+    fn as_str(self) -> &'static str {
+        match self {
+            Method::Get => "GET",
+            Method::Post => "POST",
+            Method::Patch => "PATCH",
+            Method::Delete => "DELETE",
+        }
+    }
+}
+
+pub fn execute(request: &Request, args: &Args<'_>) -> Result<Vec<u8>, Error> {
+    let config = Config::load()?;
     let env = config
         .get(args.flag("--env"))
-        .ok_or("Error: no environment configured. Run 'goodissues configure' first.")?;
+        .ok_or("no environment configured. Run 'goodissues configure' first.")?;
     let url = env
         .base_url
         .as_deref()
-        .ok_or("Error: no base URL configured. Run 'goodissues configure --url <url>'.")?;
+        .ok_or("no base URL configured. Run 'goodissues configure --url <url>'.")?;
     let key = env.api_key.as_deref();
     if request.requires_api_key && key.is_none() {
-        return Err(
-            "Error: no API key configured. Run 'goodissues configure --api-key <key>'.".into(),
-        );
+        return Err("no API key configured. Run 'goodissues configure --api-key <key>'.".into());
     }
-    let client = reqwest::blocking::Client::builder()
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .http_status_as_error(false)
+        .timeout_global(Some(TIMEOUT))
+        .user_agent(concat!("goodissues/", env!("CARGO_PKG_VERSION")))
         .build()
-        .map_err(|e| format!("Error: {e}"))?;
-    let method = reqwest::Method::from_bytes(request.method.as_bytes())
-        .map_err(|e| format!("Error: {e}"))?;
-    let mut call = client
-        .request(method, format!("{url}{}", request.path))
+        .into();
+    let mut builder = ureq::http::Request::builder()
+        .method(request.method.as_str())
+        .uri(format!("{}{}", url.trim_end_matches('/'), request.path))
         .header("Content-Type", "application/json");
     if let Some(key) = key {
-        call = call.bearer_auth(key);
+        builder = builder.header("Authorization", format!("Bearer {key}"));
     }
-    if let Some(body) = &request.body {
-        call = call.body(body.clone());
-    }
-    let response = call.send().map_err(|e| format!("Error: {e}"))?;
+    // POSTs without a body still send `Content-Length: 0`; some proxies reject
+    // bodyless POSTs with 411 Length Required.
+    let body = match (&request.body, request.method) {
+        (Some(body), _) => Some(body.as_str()),
+        (None, Method::Post) => Some(""),
+        (None, _) => None,
+    };
+    let result = match body {
+        Some(body) => builder.body(body).map(|request| agent.run(request)),
+        None => builder.body(()).map(|request| agent.run(request)),
+    };
+    let mut response = result
+        .map_err(|e| format!("invalid request: {e}"))?
+        .map_err(|e| format!("request to {url} failed: {e}"))?;
     let status = response.status().as_u16();
-    let body = response.bytes().map_err(|e| format!("Error: {e}"))?;
+    let body = response
+        .body_mut()
+        .with_config()
+        .limit(u64::MAX)
+        .read_to_vec()
+        .map_err(|e| format!("could not read the API response: {e}"))?;
     if !request.expected.contains(&status) {
-        let mut error = format!("Error: API returned {status}\n").into_bytes();
-        error.extend_from_slice(&body);
-        return Err(crate::output::Error(error));
+        return Err(Error::Response(format!("API returned {status}"), body));
     }
-    Ok(body.to_vec())
+    Ok(body)
 }

@@ -5,6 +5,7 @@ Usage:
   goodissues errors search (--module <name> | --function <name> | --file <path>) [--page <n>] [--per-page <n>] [--query <query>] [--env <name>]
   goodissues errors get <id> [--json] [--env <name>]
   goodissues errors report --body '<json>' [--env <name>]
+  goodissues errors create --body '<json>' [--env <name>]      (alias for report)
   goodissues errors update <id> [--status <status>] [--muted <true|false>] [--body '<json>'] [--env <name>]
 
 Options:
