@@ -283,10 +283,20 @@ mod tests {
         let original = br#"{"default_env":"original"}"#;
         fs::write(&path, original).unwrap();
         let mut reader = fs::File::open(&path).unwrap();
-        Config::default().save_at(home.path()).unwrap();
+        let saved = Config::default().save_at(home.path());
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).unwrap();
         assert_eq!(bytes, original);
+        if cfg!(windows) {
+            // Windows refuses to replace a file another handle has open, so
+            // the save fails and leaves the original intact instead.
+            drop(reader);
+            if saved.is_err() {
+                assert_eq!(fs::read(&path).unwrap(), original);
+                return;
+            }
+        }
+        saved.unwrap();
         assert!(Config::load_at(home.path()).unwrap().default_env.is_none());
     }
 
